@@ -74,18 +74,18 @@ ui_inter <- fluidPage(
   tabPanel("Interactive Map",
     div(class = "outer",
        
-       leafletOutput("map", height = "650px"), # sets map output
+       leafletOutput("map", height = "600px"), # sets map output
        
        # set location & size of panel with weather plots
        absolutePanel(id = "controls", class = "panel panel-default",
          draggable = T,
-         top = 75, left = "auto", right = 20, bottom = "auto", width = 250, height = 400,
+         top = 75, left = "auto", right = 20, bottom = "auto", width = 250, height = 360,
          
          h4("Weather Data", align = 'center'), # sets title - h4 for 4th level header
          
          # set outputs for plots
-         plotOutput("histRain", height = 200),
-         plotOutput("histWind", height = 200),
+         plotOutput("histRain", height = 180),
+         plotOutput("histWind", height = 180),
        ),
     )
   )
