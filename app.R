@@ -47,12 +47,16 @@ vietnam <- readOGR("./data/vietnam/vietnam.shp")
 # create color palette
 cof <- colorFactor(c("green","blue","red"), domain = c("1","2","3"))
 
+## create map with leaflet package
 map <- leaflet(landfills_clusters_sf) %>%
-    addProviderTiles(providers$Esri.WorldImagery) %>% 
-    setView(lng = 105.48, lat = 15.54, zoom = 6) %>%
-    addMiniMap %>%
+    addProviderTiles(providers$Esri.WorldImagery) %>% # add basemap
+    setView(lng = 105.48, lat = 15.54, zoom = 6) %>% # set map to location of vietnam
+    addMiniMap %>% # add mini map which changes according to map frame
+    # add outline of vietnam
     addPolygons(data = vietnam, fill = F, weight = 3, color = "#FFFFCC", group = "Outline") %>%
+    # add landfill outlines
     addPolygons(data = landfills_polygons, fill = F, weight = 3, color = "#AA40FF") %>%
+    # add risk level of landfill as colored markers
     addCircleMarkers(data = landfills_clusters_sf, color = ~cof(km_cluster_unstand), radius = sqrt(landfills_clusters_sf$area_ha)*2, 
                      fillOpacity = 0.5, label = ~name, group = "Risk") %>%
     addLegend("bottomleft", colors = c("red","blue","green"), labels = c("high", "medium", "low"), title = "Leakage Risk")
@@ -61,19 +65,25 @@ map
 
 
 #### Interactive Map ####
-ui_inter <- fluidPage("Plastic Leakage Risk Classification of Landfills in Vietnam", id = "nav",
+
+## creates the user interface of the app
+ui_inter <- fluidPage(
+  
+  h1("Plastic Leakage Risk Classification of Landfills in Vietnam", id = "nav"), # first level header
                       
   tabPanel("Interactive Map",
     div(class = "outer",
        
-       leafletOutput("map", height = "650px"),
+       leafletOutput("map", height = "650px"), # sets map output
        
+       # set location & size of panel with weather plots
        absolutePanel(id = "controls", class = "panel panel-default",
-         draggable = T, fixed = T,
-         #top = 60, left = "auto", right = 20, bottom = "auto", width = 350, height = "auto",
+         draggable = T,
+         top = 75, left = "auto", right = 20, bottom = "auto", width = 250, height = "auto",
          
-         h2("   Weather Data"),
+         h3("Weather Data", align = 'center'), # sets title - h3 for 3rd level header
          
+         # set outputs for plots
          plotOutput("histRain", height = 200),
          plotOutput("histWind", height = 200),
        ),
@@ -89,12 +99,13 @@ df$long <- st_coordinates(landfills_clusters_sf)[,1]
 df$lat <- st_coordinates(landfills_clusters_sf)[,2]
 
 
+## specifies the content of the app (backend)
 server_inter <- function(input, output, session) {
     
     ## create interactive map with leaflet
     output$map <- renderLeaflet({
         map %>%
-            # add toolbox to draw polygons
+            # add toolbox to draw new polygons
             addDrawToolbar(
                 targetGroup = "drawnPoly", 
                 rectangleOptions = F, 
@@ -107,18 +118,18 @@ server_inter <- function(input, output, session) {
                                                         drawShapeOptions(clickable = T)))
     })
     
-    latlongs <- reactiveValues() # temporary to hold coords
-    latlongs$df2 <- data.frame(Longitude = numeric(0), Latitude = numeric(0))
+    latlongs <- reactiveValues() # temporary to hold coordinates
+    latlongs$df2 <- data.frame(Longitude = numeric(0), Latitude = numeric(0)) # empty dataframe to store coordinates
     
     
-    ## create empty reactive spdf to store drawn polygons
+    ## create empty reactive spatial df to store drawn polygons
     value <- reactiveValues()
     value$drawnPoly <- SpatialPolygonsDataFrame(SpatialPolygons(list()), data = data.frame(notes=character(0), stringsAsFactors = F))
     
-    # fix the polygon to start another
+    ## save the current polygon to start drawing another polygon
     observeEvent(input$map_draw_new_feature, {
-        
-        coor <- unlist(input$map_draw_new_feature$geometry$coordinates)
+         
+        coor <- unlist(input$map_draw_new_feature$geometry$coordinates) # extract coordinates of new polygon
         
         Longitude <- coor[seq(1,length(coor), 2)] 
         Latitude <- coor[seq(2,length(coor), 2)]
@@ -128,7 +139,7 @@ server_inter <- function(input, output, session) {
         poly <- Polygon(cbind(latlongs$df2$Longitude, latlongs$df2$Latitude))
         polys <- Polygons(list(poly), ID = input$map_draw_new_feature$properties$`_leaflet_id`)
         spPolys <- SpatialPolygons(list(polys))
-        print(spPolys)
+        #print(spPolys)
         
         value$drawnPoly <- rbind(value$drawnPoly, SpatialPolygonsDataFrame(spPolys, data = data.frame(notes = NA, row.names = row.names(spPolys))))
         
@@ -139,6 +150,7 @@ server_inter <- function(input, output, session) {
         test@data$location <- NA
         test@proj4string <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
         
+        # combine current & new polygons into one dataframe by row
         new_polygons <- rbind(landfills_polygons, test)
         
         ## export new & old landfills to shapefile
@@ -185,6 +197,7 @@ server_inter <- function(input, output, session) {
         
         ## save results in spatialdataframe
         landfills_factors <- landfills_sf_centroids
+        
         # initiate columns with dummy variable
         landfills_factors$dist_station <- -1
         landfills_factors$rain <- -1
@@ -193,6 +206,7 @@ server_inter <- function(input, output, session) {
         ## function to find nearest climate station & save corresponding data
         nearest_climate_station <- function(landfills_factors, climate, x) {
           
+          # convert to simple features (sf) object for easier handling
           climate_stations_sf <- st_as_sf(climate)
           
           ## calculate the distance matrix in meters using Great Circle distance (for lat/long data) from one landfill to all climate stations
@@ -380,7 +394,7 @@ server_inter <- function(input, output, session) {
         leafletProxy("map", session) %>% setView(lng = click$lng, lat = click$lat, zoom = 16)
     })
     
-    # A reactive expression that returns the set of landfills that are in map bounds (to plot reactive graphs)
+    # reactive expression that returns the set of landfills that are inside map bounds (to plot reactive graphs)
     landfillsInBounds <- reactive({
         if (is.null(input$map_bounds))
             return(landfills_clusters_sf[FALSE,])
@@ -394,7 +408,7 @@ server_inter <- function(input, output, session) {
     })
     
     output$histRain <- renderPlot({
-        # If no zipcodes are in view, don't plot
+        # If no landfills are in view, don't plot
         if (nrow(landfillsInBounds()) == 0)
             return(NULL)
         hist(landfillsInBounds()$rain,
@@ -415,10 +429,6 @@ server_inter <- function(input, output, session) {
              xlim = range(landfills_clusters_sf$windspeed),
              col = '#00DD00',
              border = 'white')
-    })
-    
-    output$landfills <- DT::renderDT({
-        df
     })
 }  
 
