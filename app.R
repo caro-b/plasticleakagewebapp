@@ -69,7 +69,7 @@ map
 ## creates the user interface of the app
 ui_inter <- fluidPage(
   
-  h1("Plastic Leakage Risk Classification of Landfills in Vietnam", id = "nav"), # first level header
+  h2("Plastic Leakage Risk Classification of Landfills in Vietnam", id = "nav"), # second level header
                       
   tabPanel("Interactive Map",
     div(class = "outer",
@@ -79,9 +79,9 @@ ui_inter <- fluidPage(
        # set location & size of panel with weather plots
        absolutePanel(id = "controls", class = "panel panel-default",
          draggable = T,
-         top = 75, left = "auto", right = 20, bottom = "auto", width = 250, height = "auto",
+         top = 75, left = "auto", right = 20, bottom = "auto", width = 250, height = 400,
          
-         h3("Weather Data", align = 'center'), # sets title - h3 for 3rd level header
+         h4("Weather Data", align = 'center'), # sets title - h4 for 4th level header
          
          # set outputs for plots
          plotOutput("histRain", height = 200),
